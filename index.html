@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>INSCAPE — step inside a photograph</title>
+  <meta name="description" content="Drop a photograph. It becomes a space you can walk through, and a song made from its pixels." />
+  <meta name="theme-color" content="#050506" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23050506'/%3E%3Crect x='3' y='3' width='2' height='2' fill='%23c9b6ff'/%3E%3Crect x='7' y='6' width='2' height='2' fill='%2390f0ff'/%3E%3Crect x='11' y='9' width='2' height='2' fill='%23fff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body data-state="idle">
+  <canvas id="world"></canvas>
+
+  <header class="brand">
+    <span class="mark">INSCAPE</span>
+    <span class="sub">photograph → space → sound</span>
+  </header>
+
+  <button class="ghost new" id="newBtn" type="button" aria-label="Load another photograph">new image</button>
+
+  <!-- landing -->
+  <section class="drop" id="drop">
+    <label class="frame" for="file">
+      <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+      <span class="title">Step <em>inside</em> a photograph</span>
+      <span class="hint">drop an image, or click to choose</span>
+      <input id="file" type="file" accept="image/*" hidden />
+    </label>
+    <p class="note">every pixel becomes a point in space<br />every colour becomes a note</p>
+  </section>
+
+  <!-- loading -->
+  <section class="loader" id="loader" aria-live="polite">
+    <ol id="log"></ol>
+    <div class="bar"><span id="barFill"></span></div>
+  </section>
+
+  <!-- in-scene readout -->
+  <aside class="readout" id="readout"></aside>
+
+  <p class="navhint" id="navhint">
+    <span><b>drag</b> look</span>
+    <span><b>W A S D</b> move</span>
+    <span><b>scroll</b> glide</span>
+    <span><b>Q E</b> fall / rise</span>
+  </p>
+
+  <!-- player -->
+  <div class="player" id="player" role="group" aria-label="Music player">
+    <button class="pp" id="playBtn" type="button" aria-label="Play">
+      <svg class="i-play" viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" /></svg>
+      <svg class="i-pause" viewBox="0 0 16 16"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" /></svg>
+    </button>
+    <span class="t" id="tCur">0:00</span>
+    <canvas class="wave" id="wave" aria-label="Seek"></canvas>
+    <span class="t" id="tDur">0:00</span>
+    <button class="ic" id="loopBtn" type="button" aria-label="Loop" aria-pressed="true" title="loop">
+      <svg viewBox="0 0 16 16"><path d="M3 6.5a3 3 0 0 1 3-3h6M10 1.5l2 2-2 2M13 9.5a3 3 0 0 1-3 3H4M6 14.5l-2-2 2-2" /></svg>
+    </button>
+    <button class="ic" id="dlBtn" type="button" aria-label="Download the song (WAV)" title="download .wav">
+      <svg viewBox="0 0 16 16"><path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>
+    </button>
+  </div>
+
+  <div class="dropveil" id="veil"><span>release to dive in</span></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
