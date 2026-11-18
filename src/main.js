@@ -146,14 +146,7 @@ $('dlBtn').onclick = () => {
 window.addEventListener('keydown', (e) => {
   if (body.dataset.state !== 'scene') return;
   if (e.code === 'KeyP' || e.code === 'KeyM') $('playBtn').click();
-  if (e.code === 'KeyV') $('modeBtn').click();
 });
-$('modeBtn').onclick = (e) => {
-  const next = world.mode === 'surface' ? 'points' : 'surface';
-  world.setMode(next);
-  e.currentTarget.textContent = next === 'surface' ? 'surface' : 'points';
-  e.currentTarget.setAttribute('aria-label', `View mode: ${next}. Click to switch.`);
-};
 $('newBtn').onclick = () => {
   player.stop();
   world.clear();
@@ -216,12 +209,12 @@ async function dive(file) {
 
   // pixel grid for the point cloud
   const aspect = bmp.width / bmp.height;
-  // the photo wraps 360° as 4 mirrored copies; this is the per-copy point budget
-  const target = isMobile ? 26000 : 75000;
+  // surface pixels; the volume fill adds more points behind foreground objects
+  const target = isMobile ? 45000 : 110000;
   const gw = Math.round(Math.sqrt(target * aspect)), gh = Math.round(gw / aspect);
   const grid = rasterize(bmp, gw, gh);
   const dW = 320, depthGrid = rasterize(bmp, dW, Math.max(16, Math.round(dW / aspect)));
-  line('pixelating', `${num(gw * gh * 4)} points`);
+  line('pixelating', `${num(gw * gh)} pixels`);
 
   // small grid for the music
   const mw = 96, mh = Math.max(24, Math.round(mw / aspect));
@@ -249,16 +242,12 @@ async function dive(file) {
 
   line('stepping in', '');
   progress(1);
-  const tex = document.createElement('canvas');
-  const tw = Math.min(isMobile ? 1536 : 2048, bmp.width);
-  tex.width = tw; tex.height = Math.round(tw / aspect);
-  tex.getContext('2d').drawImage(bmp, 0, 0, tex.width, tex.height);
-  world.build({ image: tex, depth: { w: depthGrid.w, h: depthGrid.h, data: depth }, points: grid, meshW: isMobile ? 150 : 260 });
+  const pointCount = world.build({ depth: { w: depthGrid.w, h: depthGrid.h, data: depth }, points: grid });
   player.load(buffer);
   computePeaks(buffer);
   $('tDur').textContent = fmt(buffer.duration);
   current = { name, score, wavUrl: null };
-  fillReadout(bmp, gw * gh * 4, method, score, analysis);
+  fillReadout(bmp, pointCount, method, score, analysis);
   bmp.close?.();
 
   await new Promise((r) => setTimeout(r, 450));

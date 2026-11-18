@@ -1,29 +1,30 @@
 import * as THREE from 'three';
 
 /**
- * Drag-to-look + WASD/scroll/pinch flying with inertia.
- * On top of the "body" position it adds a constant float (breathing drift) and a
- * cursor-following head offset, so there is always parallax — that's what sells depth.
+ * Orbit-around-the-diorama controls.
+ * drag → orbit · scroll/pinch → dolly (all the way inside) · WASD → move · Q/E → down/up.
+ * A slow sway + cursor parallax sit on top so the volume is always turning a little.
  */
-export class FlyControls {
+export class OrbitFly {
   constructor(camera, dom) {
     this.camera = camera;
-    this.dom = dom;
     this.enabled = true;
-    this.pos = new THREE.Vector3();
-    this.yaw = 0;
-    this.pitch = 0;
-    this.vel = new THREE.Vector3();
-    this.look = { yaw: 0, pitch: 0 };
+    this.target = new THREE.Vector3();
+    this.theta = 0;      // yaw around target
+    this.phi = 0;        // elevation
+    this.radius = 8;
+    this.v = { theta: 0, phi: 0, radius: 0 };
+    this.move = new THREE.Vector3();
     this.keys = new Set();
     this.pointers = new Map();
     this.pinch = 0;
     this.onMove = null;
-    this.limit = 30;
     this.t = 0;
+    this.sway = 1;
     this.hover = new THREE.Vector2();
     this.hoverEased = new THREE.Vector2();
-    this.offset = new THREE.Vector3();
+    this.minR = 0.25;
+    this.maxR = 45;
 
     dom.addEventListener('pointerdown', (e) => {
       dom.setPointerCapture(e.pointerId);
@@ -39,16 +40,17 @@ export class FlyControls {
       const p = this.pointers.get(e.pointerId);
       if (!p) return;
       if (this.enabled && this.pointers.size === 1) {
-        const s = e.pointerType === 'touch' ? 0.0042 : 0.0028;
-        this.look.yaw += (e.clientX - p.x) * s;
-        this.look.pitch += (e.clientY - p.y) * s;
+        const s = e.pointerType === 'touch' ? 0.006 : 0.004;
+        this.v.theta -= (e.clientX - p.x) * s;
+        this.v.phi += (e.clientY - p.y) * s;
         this.onMove?.();
       }
       p.x = e.clientX; p.y = e.clientY;
       if (this.enabled && this.pointers.size === 2) {
         const d = this.#pinchDist();
-        this.#push(0, 0, -(d - this.pinch) * 0.03);
+        this.v.radius -= (d - this.pinch) * 0.004;
         this.pinch = d;
+        this.onMove?.();
       }
     });
     const up = (e) => { this.pointers.delete(e.pointerId); };
@@ -57,7 +59,8 @@ export class FlyControls {
     dom.addEventListener('wheel', (e) => {
       e.preventDefault();
       if (!this.enabled) return;
-      this.#push(0, 0, Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120) * 0.012);
+      this.v.radius += Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 120) * 0.0016;
+      this.onMove?.();
     }, { passive: false });
 
     window.addEventListener('keydown', (e) => {
@@ -73,31 +76,17 @@ export class FlyControls {
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
 
-  #push(x, y, z) {
-    const v = new THREE.Vector3(x, 0, z).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
-    v.y = y;
-    this.vel.add(v);
-    this.onMove?.();
-  }
-
-  reset(pos, yaw, pitch) {
-    this.pos.copy(pos);
-    this.yaw = yaw; this.pitch = pitch;
-    this.look.yaw = 0; this.look.pitch = 0;
-    this.vel.set(0, 0, 0);
-    this.apply();
-  }
-
-  apply() {
-    this.camera.quaternion.setFromEuler(new THREE.Euler(this.pitch, this.yaw, 0, 'YXZ'));
-    this.camera.position.copy(this.pos).add(this.offset);
+  set(target, theta, phi, radius) {
+    this.target.copy(target);
+    this.theta = theta; this.phi = phi; this.radius = radius;
+    this.v = { theta: 0, phi: 0, radius: 0 };
+    this.move.set(0, 0, 0);
   }
 
   update(dt) {
     this.t += dt;
     if (this.enabled) {
-      const k = this.keys;
-      const a = 9 * dt;
+      const k = this.keys, a = 7 * dt;
       let x = 0, y = 0, z = 0;
       if (k.has('KeyW') || k.has('ArrowUp')) z -= a;
       if (k.has('KeyS') || k.has('ArrowDown')) z += a;
@@ -105,28 +94,33 @@ export class FlyControls {
       if (k.has('KeyD') || k.has('ArrowRight')) x += a;
       if (k.has('KeyE') || k.has('Space')) y += a;
       if (k.has('KeyQ') || k.has('ShiftLeft')) y -= a;
-      if (x || y || z) this.#push(x, y, z);
-
-      const lk = 1 - Math.exp(-dt * 14);
-      const dy = this.look.yaw * lk, dp = this.look.pitch * lk;
-      this.yaw += dy; this.pitch += dp;
-      this.look.yaw -= dy; this.look.pitch -= dp;
-      this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch));
-
-      this.pos.addScaledVector(this.vel, dt);
-      this.vel.multiplyScalar(Math.exp(-dt * 3.2));
-      if (this.pos.length() > this.limit) this.pos.setLength(this.limit);
+      if (x || y || z) {
+        const v = new THREE.Vector3(x, 0, z).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.theta);
+        v.y = y;
+        this.move.add(v);
+        this.onMove?.();
+      }
+      // inertia
+      const f = 1 - Math.exp(-dt * 7);
+      this.theta += this.v.theta * f; this.v.theta *= 1 - f;
+      this.phi += this.v.phi * f; this.v.phi *= 1 - f;
+      this.radius *= Math.exp(this.v.radius * f); this.v.radius *= 1 - f;
+      this.phi = Math.max(-1.2, Math.min(1.35, this.phi));
+      this.radius = Math.max(this.minR, Math.min(this.maxR, this.radius));
+      this.target.addScaledVector(this.move, dt);
+      this.move.multiplyScalar(Math.exp(-dt * 3.5));
     }
 
-    // head: float + cursor parallax, in view space
+    // life: slow sway + cursor parallax (not accumulated)
     this.hoverEased.lerp(this.hover, 1 - Math.exp(-dt * 2.5));
-    const t = this.t;
-    const local = new THREE.Vector3(
-      Math.sin(t * 0.23) * 0.22 + this.hoverEased.x * 0.45,
-      Math.sin(t * 0.31 + 1.3) * 0.1 - this.hoverEased.y * 0.25,
-      Math.sin(t * 0.17 + 0.4) * 0.25,
+    const th = this.theta + this.sway * (Math.sin(this.t * 0.16) * 0.1 + this.hoverEased.x * 0.12);
+    const ph = this.phi + this.sway * (Math.sin(this.t * 0.11 + 1) * 0.03 - this.hoverEased.y * 0.06);
+    const r = this.radius;
+    this.camera.position.set(
+      this.target.x + Math.sin(th) * Math.cos(ph) * r,
+      this.target.y + Math.sin(ph) * r,
+      this.target.z + Math.cos(th) * Math.cos(ph) * r,
     );
-    this.offset.copy(local.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw));
-    this.apply();
+    this.camera.lookAt(this.target);
   }
 }

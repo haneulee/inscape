@@ -2,10 +2,10 @@
 
 Step inside a photograph. Drop an image and it becomes:
 
-- **a space you stand inside**: depth comes from in-browser monocular depth estimation (Depth Anything V2 via transformers.js, with a heuristic fallback). The photo becomes a textured depth surface that tears open at depth edges, wrapped 360° around you as seamlessly mirrored copies. A blurred backdrop extends into a sky dome and floor, and the camera's float and cursor parallax keep depth visible. Press `V` to switch to a pure point cloud.
+- **a solid diorama**: depth comes from in-browser monocular depth estimation (Depth Anything V2 via transformers.js, with a heuristic fallback). Every pixel becomes a point. Where something stands in front of something else, the gap behind it is filled with points, so objects get thickness and sides. Normals from the depth map catch a slowly orbiting light. The piece floats over a dotted floor, and you orbit around it or fly into it.
 - **a song**: the image is read like a score. Left to right is time, height is pitch. The dominant colour picks the key, brightness and warmth pick the mode, saturation and contrast set the tempo and rhythm, and the pixel count sets the length. A glowing scanline shows which column the melody is reading.
 
-Controls: drag to look, `W A S D` to move, scroll to glide, `Q`/`E` to fall or rise, `P` to play/pause.
+Controls: drag to orbit, scroll or pinch to move in and out (all the way inside), `W A S D` to move, `Q`/`E` for down/up, `P` to play/pause.
 The player bar has play/pause, a seekable waveform, loop, and `.wav` download.
 
 ## Stack
