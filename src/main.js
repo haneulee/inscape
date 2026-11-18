@@ -146,7 +146,14 @@ $('dlBtn').onclick = () => {
 window.addEventListener('keydown', (e) => {
   if (body.dataset.state !== 'scene') return;
   if (e.code === 'KeyP' || e.code === 'KeyM') $('playBtn').click();
+  if (e.code === 'KeyV') $('modeBtn').click();
 });
+$('modeBtn').onclick = (e) => {
+  const next = world.mode === 'surface' ? 'points' : 'surface';
+  world.setMode(next);
+  e.currentTarget.textContent = next === 'surface' ? 'surface' : 'points';
+  e.currentTarget.setAttribute('aria-label', `View mode: ${next}. Click to switch.`);
+};
 $('newBtn').onclick = () => {
   player.stop();
   world.clear();
@@ -209,10 +216,12 @@ async function dive(file) {
 
   // pixel grid for the point cloud
   const aspect = bmp.width / bmp.height;
-  const target = isMobile ? 90000 : 170000;
+  // the photo wraps 360° as 4 mirrored copies; this is the per-copy point budget
+  const target = isMobile ? 26000 : 75000;
   const gw = Math.round(Math.sqrt(target * aspect)), gh = Math.round(gw / aspect);
   const grid = rasterize(bmp, gw, gh);
-  line('pixelating', `${num(gw * gh)} points`);
+  const dW = 320, depthGrid = rasterize(bmp, dW, Math.max(16, Math.round(dW / aspect)));
+  line('pixelating', `${num(gw * gh * 4)} points`);
 
   // small grid for the music
   const mw = 96, mh = Math.max(24, Math.round(mw / aspect));
@@ -232,7 +241,7 @@ async function dive(file) {
   const setSong = line('composing', '…');
   let dp = 0, ap = 0;
   const tick = () => progress(0.12 + dp * 0.68 + ap * 0.2);
-  const depthP = estimateDepth(src, grid, (p) => { dp = p * 0.9; setDepth(`model ${Math.round(p * 100)}%`); tick(); })
+  const depthP = estimateDepth(src, depthGrid, (p) => { dp = p * 0.9; setDepth(`model ${Math.round(p * 100)}%`); tick(); })
     .then((r) => { dp = 1; setDepth(r.method); tick(); return r; });
   const songP = render(score).then((b) => { ap = 1; setSong(`${num(score.notes.length)} notes`); tick(); return b; });
   const [{ depth, method }, buffer] = await Promise.all([depthP, songP]);
@@ -240,12 +249,16 @@ async function dive(file) {
 
   line('stepping in', '');
   progress(1);
-  world.build(grid, depth);
+  const tex = document.createElement('canvas');
+  const tw = Math.min(isMobile ? 1536 : 2048, bmp.width);
+  tex.width = tw; tex.height = Math.round(tw / aspect);
+  tex.getContext('2d').drawImage(bmp, 0, 0, tex.width, tex.height);
+  world.build({ image: tex, depth: { w: depthGrid.w, h: depthGrid.h, data: depth }, points: grid, meshW: isMobile ? 150 : 260 });
   player.load(buffer);
   computePeaks(buffer);
   $('tDur').textContent = fmt(buffer.duration);
   current = { name, score, wavUrl: null };
-  fillReadout(bmp, gw * gh, method, score, analysis);
+  fillReadout(bmp, gw * gh * 4, method, score, analysis);
   bmp.close?.();
 
   await new Promise((r) => setTimeout(r, 450));

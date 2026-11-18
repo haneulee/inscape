@@ -35,9 +35,9 @@ body[data-state="scene"] #world:active { cursor: grabbing; }
 .mark { font-weight: 400; letter-spacing: 0.42em; font-size: 11px; }
 .sub { color: var(--dim); }
 
+.top { position: fixed; top: 18px; right: 20px; z-index: 6; display: flex; gap: 8px; }
 .ghost {
-  position: fixed; top: 18px; right: 20px; z-index: 6;
-  padding: 6px 12px; border: 1px solid var(--faint); border-radius: 999px;
+  padding: 6px 12px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--faint); border-radius: 999px;
   color: var(--dim); transition: color .3s, border-color .3s, opacity .6s;
   opacity: 0; pointer-events: none;
 }
